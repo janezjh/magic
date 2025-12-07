@@ -1,7 +1,15 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { PlayerStats, TurnResponse, InventoryItem } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+// Lazy initialization to prevent "process is not defined" errors during module loading
+const getAI = (): GoogleGenAI => {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return aiInstance;
+};
 
 const SYSTEM_INSTRUCTION = `
 You are the "Earth Online" (地球Online) System Assistant.
@@ -70,6 +78,7 @@ export const processGameTurn = async (
   inventory: InventoryItem[]
 ): Promise<TurnResponse> => {
   try {
+    const ai = getAI();
     const model = "gemini-2.5-flash";
     
     // Construct context
@@ -123,6 +132,7 @@ export const processGameTurn = async (
 
 export const generateInitialGreeting = async (role: string, goal: string): Promise<string> => {
     try {
+        const ai = getAI();
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: `The player has initialized as a "${role}" with the goal: "${goal}". Welcome them to Earth Online in Chinese. Be brief, mysterious, and lively.`,
@@ -132,6 +142,7 @@ export const generateInitialGreeting = async (role: string, goal: string): Promi
         });
         return response.text || "欢迎来到地球Online。初始化完成。";
     } catch (e) {
+        console.error("Greeting Error:", e);
         return "欢迎来到地球Online。";
     }
 }

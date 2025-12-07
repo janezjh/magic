@@ -43,24 +43,34 @@ function App() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const Hls = (window as any).Hls;
+    try {
+        const Hls = (window as any).Hls;
 
-    if (Hls && Hls.isSupported() && bgmUrl.includes('.m3u8')) {
-        if (hlsRef.current) {
-            hlsRef.current.destroy();
+        if (Hls && Hls.isSupported() && bgmUrl.includes('.m3u8')) {
+            if (hlsRef.current) {
+                hlsRef.current.destroy();
+            }
+            const hls = new Hls();
+            hlsRef.current = hls;
+            hls.loadSource(bgmUrl);
+            hls.attachMedia(audio);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (isPlaying) {
+                    audio.play().catch(e => console.log("Auto-play blocked", e));
+                }
+            });
+            hls.on(Hls.Events.ERROR, function (event: any, data: any) {
+                if (data.fatal) {
+                   console.warn("HLS Error:", data);
+                   // Fallback logic could go here
+                }
+            });
+        } else {
+            // Fallback for native support (Safari) or standard mp3
+            audio.src = bgmUrl;
         }
-        const hls = new Hls();
-        hlsRef.current = hls;
-        hls.loadSource(bgmUrl);
-        hls.attachMedia(audio);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-             if (isPlaying) {
-                 audio.play().catch(e => console.log("Auto-play blocked", e));
-             }
-        });
-    } else {
-        // Fallback for native support (Safari) or standard mp3
-        audio.src = bgmUrl;
+    } catch (err) {
+        console.error("Audio Initialization Error:", err);
     }
 
     return () => {
