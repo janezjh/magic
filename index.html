@@ -1,48 +1,224 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
+<html lang="zh-CN">
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>地球Online (Earth Online)</title>
+    <title>地球Online | Earth Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
+    
     <style>
-      body {
-        font-family: 'Rajdhani', 'Noto Sans SC', sans-serif;
-        background-color: #000;
-        color: #fff;
-        overflow: hidden; /* Prevent body scroll, handle in app */
-      }
-      .font-mono-tech {
-        font-family: 'Share Tech Mono', 'Noto Sans SC', monospace;
-      }
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #0f172a; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #0891b2; 
-        border-radius: 3px;
-      }
+        body {
+            font-family: 'Rajdhani', 'Noto Sans SC', sans-serif;
+            background-color: #050505;
+            color: #e0f2fe; /* light blue text */
+            overflow: hidden;
+        }
+        .font-tech {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        /* 科幻滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 3px; }
+        
+        /* 霓虹光效 */
+        .neon-border {
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2), inset 0 0 20px rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+        }
+        .neon-text {
+            text-shadow: 0 0 5px rgba(6, 182, 212, 0.8);
+        }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.1/client",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0"
-  }
-}
-</script>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "@google/generative-ai": "https://esm.sh/@google/generative-ai@0.1.3"
+      }
+    }
+    </script>
 </head>
-  <body>
+<body>
     <div id="root"></div>
-  </body>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { Terminal, Battery, Zap, Brain, Activity, Shield, Send } from 'lucide-react';
+        import { GoogleGenerativeAI } from '@google/generative-ai';
+
+        const App = () => {
+            const [input, setInput] = useState('');
+            const [messages, setMessages] = useState([
+                { role: 'system', text: '系统初始化完成... 正在连接地球Online服务器...' },
+                { role: 'system', text: '请输入 API Key 以激活神经连接。' }
+            ]);
+            const [apiKey, setApiKey] = useState('');
+            const [isKeySet, setIsKeySet] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
+            const chatEndRef = useRef(null);
+            
+            // 模拟数值状态
+            const [stats, setStats] = useState({
+                level: 0,
+                money: 0,
+                intelligence: 0,
+                stamina: 0,
+                charisma: 0,
+                fatigue: 0
+            });
+
+            // 滚动到底部
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const handleSend = async () => {
+                if (!input.trim()) return;
+
+                // 如果还没设置 Key
+                if (!isKeySet) {
+                    setApiKey(input.trim());
+                    setIsKeySet(true);
+                    setMessages(prev => [...prev, { role: 'user', text: '****** (API KEY)' }]);
+                    setMessages(prev => [...prev, { role: 'system', text: '密钥已接收。系统激活成功！请设定你的身份和目标。' }]);
+                    setInput('');
+                    return;
+                }
+
+                // 正常对话
+                const userMsg = input;
+                setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+                setInput('');
+                setIsLoading(true);
+
+                try {
+                    const genAI = new GoogleGenerativeAI(apiKey);
+                    const model = genAI.getGenerativeModel({ 
+                        model: "gemini-1.5-flash",
+                        systemInstruction: `
+                            你现在是“地球Online”的系统助手。
+                            请以Markdown格式回复，必须包含两个部分：
+                            1. 对话部分。
+                            2. 隐藏的JSON数据块用来更新UI（如果需要更新数值），格式为：
+                            \`\`\`json
+                            { "level": 0, "money": 100, "intelligence": 5 ... }
+                            \`\`\`
+                            如果不涉及数值变动，则不需要JSON。
+                            保持语气科幻、冷静、活泼。
+                        `
+                    });
+
+                    const result = await model.generateContent(userMsg);
+                    const response = result.response;
+                    const text = response.text();
+
+                    // 简单的解析逻辑：分离显示的文本和JSON
+                    // 这里为了演示简化处理，直接显示全部文本，实际应用可以使用正则提取JSON更新stats
+                    setMessages(prev => [...prev, { role: 'ai', text: text }]);
+                    
+                    // 这里模拟一下数值变动效果（因为解析JSON比较复杂，暂用随机数演示前端效果）
+                    if (userMsg.includes('学习') || userMsg.includes('工作')) {
+                        setStats(prev => ({...prev, intelligence: prev.intelligence + 1, fatigue: Math.min(100, prev.fatigue + 10)}));
+                    } else if (userMsg.includes('运动')) {
+                        setStats(prev => ({...prev, stamina: prev.stamina + 1, fatigue: Math.min(100, prev.fatigue + 20)}));
+                    } else if (userMsg.includes('休息')) {
+                         setStats(prev => ({...prev, fatigue: Math.max(0, prev.fatigue - 50)}));
+                    }
+
+                } catch (error) {
+                    setMessages(prev => [...prev, { role: 'system', text: `连接错误: ${error.message}` }]);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-screen w-full max-w-4xl mx-auto p-4 gap-4">
+                    {/* 顶部 HUD */}
+                    <header className="neon-border bg-gray-900/80 p-4 rounded-lg flex flex-wrap justify-between items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Activity className="text-cyan-400 animate-pulse" />
+                            <h1 className="text-2xl font-bold tracking-widest neon-text">EARTH ONLINE</h1>
+                        </div>
+                        <div className="flex gap-6 font-tech text-sm md:text-base">
+                            <div className="flex items-center gap-1 text-yellow-400"><Zap size={16}/> LV.{stats.level}</div>
+                            <div className="flex items-center gap-1 text-green-400">¥ {stats.money}</div>
+                            <div className="flex items-center gap-1 text-blue-400"><Brain size={16}/> INT: {stats.intelligence}</div>
+                            <div className="flex items-center gap-1 text-red-400"><Shield size={16}/> STA: {stats.stamina}</div>
+                            <div className="flex items-center gap-1 text-purple-400">CHA: {stats.charisma}</div>
+                        </div>
+                        <div className="flex items-center gap-2 w-32">
+                            <Battery className={`w-5 h-5 ${stats.fatigue > 80 ? 'text-red-500' : 'text-cyan-400'}`} />
+                            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                                <div 
+                                    className={`h-full ${stats.fatigue > 80 ? 'bg-red-500' : 'bg-cyan-500'} transition-all duration-500`} 
+                                    style={{width: `${stats.fatigue}%`}}
+                                ></div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* 聊天主区域 */}
+                    <main className="flex-1 neon-border bg-gray-900/50 rounded-lg p-4 overflow-y-auto relative backdrop-blur-sm">
+                        <div className="absolute top-2 right-2 text-xs text-gray-500 font-tech">LOG_ID: 2025-XJ-01</div>
+                        <div className="space-y-4">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] p-3 rounded-lg font-mono text-sm leading-relaxed ${
+                                        msg.role === 'user' 
+                                        ? 'bg-cyan-900/30 border border-cyan-500/30 text-cyan-100' 
+                                        : msg.role === 'system' 
+                                            ? 'text-yellow-500 font-tech text-xs w-full text-center border-t border-b border-yellow-900/50 py-1'
+                                            : 'bg-gray-800/80 border border-gray-600/50 text-gray-300'
+                                    }`}>
+                                        {msg.role !== 'system' && <div className="text-[10px] opacity-50 mb-1 font-tech uppercase">{msg.role}</div>}
+                                        <div style={{whiteSpace: 'pre-wrap'}}>{msg.text}</div>
+                                    </div>
+                                </div>
+                            ))}
+                            {isLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-gray-800/80 p-3 rounded-lg text-cyan-400 font-tech animate-pulse">
+                                        System Calculating...
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+                    </main>
+
+                    {/* 底部输入框 */}
+                    <footer className="neon-border bg-gray-900/80 p-2 rounded-lg flex gap-2">
+                        <div className="flex items-center pl-3 text-cyan-500 font-tech">{'>'}</div>
+                        <input 
+                            type="text" 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                            placeholder={isKeySet ? "输入指令 (如: 背单词30分钟)..." : "请输入 Google Gemini API Key 以开始..."}
+                            className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder-gray-600"
+                        />
+                        <button 
+                            onClick={handleSend}
+                            disabled={isLoading}
+                            className="bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 border border-cyan-500/50 px-6 py-2 rounded transition-all font-tech font-bold uppercase disabled:opacity-50"
+                        >
+                            <Send size={18} />
+                        </button>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>
